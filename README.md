@@ -8,7 +8,7 @@ To Run
 
 <img src="images/screen_1.png">
 
-<img src="images/screen_1.png">
+<img src="images/screen_2.png">
 
 ### Spark UI -
 
