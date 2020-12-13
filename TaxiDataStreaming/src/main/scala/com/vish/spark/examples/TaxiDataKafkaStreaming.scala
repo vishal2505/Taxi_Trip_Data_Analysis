@@ -1,12 +1,12 @@
 package com.vish.spark.examples
 
 import org.apache.log4j.Logger
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, ceil, concat, lit, window, desc}
-import org.apache.spark.sql.types.{StructField, StringType, TimestampType, DoubleType, IntegerType, StructType}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.Trigger
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
-object TaxiDataFileStreaming extends Serializable {
+object TaxiDataKafkaStreaming extends Serializable {
 
   @transient lazy val logger: Logger = Logger.getLogger(getClass.getName)
 
@@ -91,17 +91,26 @@ object TaxiDataFileStreaming extends Serializable {
 
     val spark = SparkSession.builder()
       .master("local[3]")
-      .appName("Taxi Data File Streaming")
+      .appName("Taxi Data Kafka Streaming")
       .config("spark.sql.stopGracefullyOnShutdown", "true")
       .config("spark.sql.streaming.schemaInference", "true")
       .getOrCreate()
 
-    val rawDF = spark.readStream
-      .format("csv")
-      .option("path", "input")
-      .schema(inputSchema)
-      .option("maxFilesPerTrigger", 1)
+    val kafkaDF = spark.readStream
+      .format("kafka")
+      .option("kafka.bootstrap.servers", "localhost:9091")
+      .option("subscribe", "taxitripdata")                                //topic name - taxitripdata
+      .option("startingOffsets", "earliest")
       .load()
+
+    //Get the value as a message from the topic and apply the input schema
+    val valueDF = kafkaDF.select(from_json(col("value").cast("string"), inputSchema).alias("value"))
+
+
+    val rawDF = valueDF.selectExpr("value.medallion", "value.hack_license", "value.pickup_datetime",
+      "value.dropoff_datetime", "value.trip_time_in_secs", "value.trip_distance", "value.pickup_longitude", "value.pickup_latitude",
+      "value.dropoff_longitude", "value.dropoff_latitude", "value.payment_type", "value.fare_amount", "value.surcharge",
+      "value.mta_tax", "value.tip_amount", "value.tolls_amount", "value.total_amount")
 
     // Apply filters
     val preprocessedDF = pre_process_df(rawDF)
@@ -121,15 +130,15 @@ object TaxiDataFileStreaming extends Serializable {
     logger.info("Most frequent routes")
 
     val query = most_frequent_routes.writeStream
-      .format("console")
-      .queryName("Taxi_Trip_Data_Streaming")
-      .option("truncate",false)
-      //.option("path", "output")
+      .format("json")
+      .queryName("Taxi_Trip_Kafka_Streaming")
+      .outputMode("append")
+      .option("path", "output")
       .trigger(Trigger.ProcessingTime("30 seconds"))
-      .outputMode("complete")
       .option("checkpointLocation", "chk-point-dir")
       .start()
 
+    logger.info("Listening to Kafka")
     query.awaitTermination()
 
   }
