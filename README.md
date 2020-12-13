@@ -1,7 +1,10 @@
 # Taxi_Trip_Data_Analysis
 
-To Run
+## To Run
 
+Set up the run config as updated in the below screenshot.
+
+<img src="images/run_config.png">
 
 
 ## Screenshots
