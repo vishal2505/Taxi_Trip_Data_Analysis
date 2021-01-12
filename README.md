@@ -6,6 +6,8 @@ Set up the run config as updated in the below screenshot.
 
 <img src="images/run_config.png">
 
+## Grid Cell 
+<img src="images/grid_cell.png">
 
 ## Screenshots
 
